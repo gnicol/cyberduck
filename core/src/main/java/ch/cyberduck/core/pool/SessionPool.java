@@ -29,6 +29,12 @@ import ch.cyberduck.core.vault.VaultRegistry;
 public interface SessionPool {
     SessionPool DISCONNECTED = new DisconnectedSessionPool();
 
+    SessionPool withMinIdle(int count);
+
+    SessionPool withMaxIdle(int count);
+
+    SessionPool withMaxTotal(int count);
+
     /**
      * Borrow session from pool
      *
@@ -86,6 +92,21 @@ public interface SessionPool {
         private static final Host DISCONNECTED = new Host(ProtocolFactory.forName(PreferencesFactory.get().getProperty("connection.protocol.default")),
                 PreferencesFactory.get().getProperty("connection.hostname.default"),
                 PreferencesFactory.get().getInteger("connection.port.default"));
+
+        @Override
+        public SessionPool withMinIdle(final int count) {
+            return this;
+        }
+
+        @Override
+        public SessionPool withMaxIdle(final int count) {
+            return this;
+        }
+
+        @Override
+        public SessionPool withMaxTotal(final int count) {
+            return this;
+        }
 
         @Override
         public Session<?> borrow(final BackgroundActionState callback) throws BackgroundException {

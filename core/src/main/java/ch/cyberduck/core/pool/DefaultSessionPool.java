@@ -104,6 +104,7 @@ public class DefaultSessionPool implements SessionPool {
         }
     }
 
+    @Override
     public DefaultSessionPool withMinIdle(final int count) {
         if(log.isDebugEnabled()) {
             log.debug(String.format("Configure with min idle %d", count));
@@ -112,6 +113,7 @@ public class DefaultSessionPool implements SessionPool {
         return this;
     }
 
+    @Override
     public DefaultSessionPool withMaxIdle(final int count) {
         if(log.isDebugEnabled()) {
             log.debug(String.format("Configure with max idle %d", count));
@@ -120,6 +122,7 @@ public class DefaultSessionPool implements SessionPool {
         return this;
     }
 
+    @Override
     public DefaultSessionPool withMaxTotal(final int count) {
         if(log.isDebugEnabled()) {
             log.debug(String.format("Configure with max total %d", count));

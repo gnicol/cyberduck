@@ -22,6 +22,7 @@ import ch.cyberduck.core.Session;
 import ch.cyberduck.core.TranscriptListener;
 import ch.cyberduck.core.exception.BackgroundException;
 import ch.cyberduck.core.exception.ConnectionCanceledException;
+import ch.cyberduck.core.preferences.PreferencesFactory;
 import ch.cyberduck.core.threading.BackgroundActionState;
 import ch.cyberduck.core.threading.CancelCallback;
 import ch.cyberduck.core.threading.DefaultFailureDiagnostics;
@@ -29,6 +30,8 @@ import ch.cyberduck.core.threading.FailureDiagnostics;
 import ch.cyberduck.core.vault.VaultRegistry;
 
 import org.apache.log4j.Logger;
+
+import java.util.concurrent.Semaphore;
 
 public class StatelessSessionPool implements SessionPool {
     private static final Logger log = Logger.getLogger(StatelessSessionPool.class);
@@ -42,6 +45,12 @@ public class StatelessSessionPool implements SessionPool {
 
     private final Object lock = new Object();
 
+    /**
+     * Fair queue
+     */
+    private Semaphore semaphore = new Semaphore(
+            PreferencesFactory.get().getInteger("connection.pool.maxtotal"), true);
+
     public StatelessSessionPool(final ConnectionService connect, final Session<?> session, final PathCache cache,
                                 final TranscriptListener transcript, final VaultRegistry registry) {
         this.connect = connect;
@@ -51,10 +60,27 @@ public class StatelessSessionPool implements SessionPool {
         this.cache = cache;
     }
 
+    @Override
+    public SessionPool withMinIdle(final int count) {
+        return this;
+    }
+
+    @Override
+    public SessionPool withMaxIdle(final int count) {
+        return this;
+    }
+
+    @Override
+    public SessionPool withMaxTotal(final int count) {
+        semaphore.drainPermits();
+        semaphore = new Semaphore(count, true);
+        return this;
+    }
 
     @Override
     public Session<?> borrow(final BackgroundActionState callback) throws BackgroundException {
         synchronized(lock) {
+            semaphore.acquireUninterruptibly();
             connect.check(session.withListener(transcript), cache, new CancelCallback() {
                 @Override
                 public void verify() throws ConnectionCanceledException {
@@ -70,8 +96,13 @@ public class StatelessSessionPool implements SessionPool {
     @Override
     public void release(final Session<?> conn, final BackgroundException failure) {
         synchronized(lock) {
-            if(failure != null && diagnostics.determine(failure) == FailureDiagnostics.Type.network) {
-                connect.close(conn);
+            try {
+                if(failure != null && diagnostics.determine(failure) == FailureDiagnostics.Type.network) {
+                    connect.close(conn);
+                }
+            }
+            finally {
+                semaphore.release();
             }
         }
     }
